@@ -18,19 +18,23 @@ package cats
 package effect
 package internals
 
+import scala.util.control.NonFatal
+
 private[effect] object IOAppPlatform {
   def main(args: Array[String], contextShift: Eval[ContextShift[IO]], timer: Eval[Timer[IO]])(
     run: List[String] => IO[ExitCode]
   ): Unit = {
-    val code = mainFiber(args, contextShift, timer)(run).flatMap(_.join).unsafeRunSync()
-    if (code == 0) {
-      // Return naturally from main. This allows any non-daemon
-      // threads to gracefully complete their work, and managed
-      // environments to execute their own shutdown hooks.
-      ()
-    } else {
-      sys.exit(code)
-    }
+    try {
+      val code = mainFiber(args, contextShift, timer)(run).flatMap(_.join).unsafeRunSync()
+      if (code == 0) {
+        // Return naturally from main. This allows any non-daemon
+        // threads to gracefully complete their work, and managed
+        // environments to execute their own shutdown hooks.
+        ()
+      } else {
+        sys.exit(code)
+      }
+    } catch { case NonFatal(e) => sys.exit(1)}
   }
 
   def mainFiber(args: Array[String], contextShift: Eval[ContextShift[IO]], timer: Eval[Timer[IO]])(
